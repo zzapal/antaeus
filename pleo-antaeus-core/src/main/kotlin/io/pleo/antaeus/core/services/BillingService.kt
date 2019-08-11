@@ -1,6 +1,9 @@
 package io.pleo.antaeus.core.services
 
 import io.pleo.antaeus.core.external.PaymentProvider
+import mu.KotlinLogging
+
+private val logger = KotlinLogging.logger {}
 
 class BillingService(
     private val paymentProvider: PaymentProvider,
@@ -8,8 +11,20 @@ class BillingService(
 ) {
     fun chargeAllInvoices() {
         for (invoice in invoiceService.fetchPendingInvoices()) {
-            paymentProvider.charge(invoice)
-            invoiceService.invoicePaid(invoice)
+            try {
+                logger.trace { "Charging invoice ${invoice.id}" }
+                if (!paymentProvider.charge(invoice)) {
+                    logger.warn { "Invoice ${invoice.id} NOT charged - call returned FALSE" }
+                } else {
+                    logger.trace { "Invoice ${invoice.id} charged sucessfully" }
+
+                    invoiceService.invoicePaid(invoice)
+
+                    logger.trace { "Updating invoice ${invoice.id} status - PAID" }
+                }
+            } catch (e: Exception) {
+                logger.error(e) { "Invoice ${invoice.id} charging/updating invoice failed." }
+            }
         }
     }
 }
