@@ -19,3 +19,10 @@ object CustomerTable : Table() {
     val id = integer("id").autoIncrement().primaryKey()
     val currency = varchar("currency", 3)
 }
+
+object PaymentAuditTable : Table() {
+    val id = integer("id").autoIncrement().primaryKey()
+    val tookMs = long("tookMs").nullable()
+    val arguments = text("arguments")
+    val response = text("response").nullable()
+}

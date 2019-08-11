@@ -2,6 +2,7 @@ package io.pleo.antaeus.core.services
 
 import io.pleo.antaeus.core.external.PaymentProvider
 import mu.KotlinLogging
+import kotlinx.coroutines.*
 
 private val logger = KotlinLogging.logger {}
 
@@ -10,20 +11,47 @@ class BillingService(
     private val invoiceService: InvoiceService
 ) {
     fun chargeAllInvoices() {
-        for (invoice in invoiceService.fetchPendingInvoices()) {
-            try {
-                logger.trace { "Charging invoice ${invoice.id}" }
-                if (!paymentProvider.charge(invoice)) {
-                    logger.warn { "Invoice ${invoice.id} NOT charged - call returned FALSE" }
-                } else {
-                    logger.trace { "Invoice ${invoice.id} charged sucessfully" }
+        runBlocking {
+            for (invoice in invoiceService.fetchPendingInvoices()) {
+                try {
+                    logger.trace { "Charging invoice ${invoice.id}" }
 
-                    invoiceService.invoicePaid(invoice)
+                    if (!paymentProvider.charge(invoice)) {
+                        logger.warn { "Invoice ${invoice.id} NOT charged - call returned FALSE" }
+                    } else {
+                        logger.trace { "Invoice ${invoice.id} charged sucessfully" }
 
-                    logger.trace { "Updating invoice ${invoice.id} status - PAID" }
+                        invoiceService.invoicePaid(invoice)
+                        logger.trace { "Updating invoice ${invoice.id} status - PAID" }
+                    }
+                } catch (e: Exception) {
+                    logger.error(e) { "Invoice ${invoice.id} charging/updating invoice failed." }
                 }
-            } catch (e: Exception) {
-                logger.error(e) { "Invoice ${invoice.id} charging/updating invoice failed." }
+            }
+        }
+    }
+
+    fun chargeAllInvoicesWithConcurrent() {
+        runBlocking {
+            for (invoice in invoiceService.fetchPendingInvoices()) {
+                launch(Dispatchers.IO) {
+                    try {
+                        logger.trace { "Charging invoice ${invoice.id}" }
+
+                        if (!paymentProvider.charge(invoice)) {
+                            logger.warn { "Invoice ${invoice.id} NOT charged - call returned FALSE" }
+                        } else {
+                            logger.trace { "Invoice ${invoice.id} charged sucessfully" }
+
+                            launch(Dispatchers.Main) {
+                                invoiceService.invoicePaid(invoice)
+                                logger.trace { "Updating invoice ${invoice.id} status - PAID" }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        logger.error(e) { "Invoice ${invoice.id} charging/updating invoice failed." }
+                    }
+                }
             }
         }
     }

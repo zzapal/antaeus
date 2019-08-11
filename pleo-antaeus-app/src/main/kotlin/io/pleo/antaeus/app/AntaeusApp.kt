@@ -14,6 +14,7 @@ import io.pleo.antaeus.core.services.InvoiceService
 import io.pleo.antaeus.data.AntaeusDal
 import io.pleo.antaeus.data.CustomerTable
 import io.pleo.antaeus.data.InvoiceTable
+import io.pleo.antaeus.data.PaymentAuditTable
 import io.pleo.antaeus.rest.AntaeusRest
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
@@ -26,13 +27,14 @@ import java.sql.Connection
 
 fun main() {
     // The tables to create in the database.
-    val tables = arrayOf(InvoiceTable, CustomerTable)
+    val tables = arrayOf(InvoiceTable, CustomerTable, PaymentAuditTable)
 
     // Connect to the database and create the needed tables. Drop any existing data.
     val db = Database
         .connect("jdbc:sqlite:/tmp/data.db", "org.sqlite.JDBC")
         .also {
             TransactionManager.manager.defaultIsolationLevel = Connection.TRANSACTION_SERIALIZABLE
+
             transaction(it) {
                 addLogger(StdOutSqlLogger)
                 // Drop all existing tables to ensure a clean slate on each run
@@ -42,6 +44,8 @@ fun main() {
             }
         }
 
+
+
     // Set up data access layer.
     val dal = AntaeusDal(db = db)
 
@@ -49,7 +53,7 @@ fun main() {
     setupInitialData(dal = dal)
 
     // Get third parties
-    val paymentProvider = getPaymentProvider()
+    val paymentProvider = getPaymentProvider(dal = dal)
 
     // Create core services
     val invoiceService = InvoiceService(dal = dal)

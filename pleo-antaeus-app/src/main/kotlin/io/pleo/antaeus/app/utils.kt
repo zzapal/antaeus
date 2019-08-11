@@ -7,6 +7,8 @@ import io.pleo.antaeus.models.InvoiceStatus
 import io.pleo.antaeus.models.Money
 import java.math.BigDecimal
 import kotlin.random.Random
+import kotlinx.coroutines.*
+import kotlin.system.measureTimeMillis
 
 // This will create all schemas and setup initial data
 internal fun setupInitialData(dal: AntaeusDal) {
@@ -31,10 +33,21 @@ internal fun setupInitialData(dal: AntaeusDal) {
 }
 
 // This is the mocked instance of the payment provider
-internal fun getPaymentProvider(): PaymentProvider {
+internal fun getPaymentProvider(dal: AntaeusDal): PaymentProvider {
     return object : PaymentProvider {
-        override fun charge(invoice: Invoice): Boolean {
-                return Random.nextBoolean()
+        override suspend fun charge(invoice: Invoice): Boolean {
+            val id = dal.createPaymentAudit(invoice.toString())
+
+            var result = false
+
+            val tookMs = measureTimeMillis {
+                delay(Random.nextLong(1, 5000))
+                result = Random.nextBoolean()
+            }
+
+            dal.updatePaymentAudit(id, tookMs, result.toString())
+
+            return result
         }
     }
 }

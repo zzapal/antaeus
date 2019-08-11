@@ -88,8 +88,32 @@ class AntaeusDal(private val db: Database) {
 
     fun updateInvoiceStatus(invoice: Invoice, status: InvoiceStatus) {
         transaction(db) {
+            addLogger(StdOutSqlLogger)
             InvoiceTable.update({InvoiceTable.id.eq(invoice.id)}) {
                 it[this.status] = status.toString()
+            }
+        }
+    }
+
+    fun createPaymentAudit(arguments: String): Int {
+        val id = transaction(db) {
+            addLogger(StdOutSqlLogger)
+
+            PaymentAuditTable.insert {
+                it[this.arguments] = arguments
+            } get PaymentAuditTable.id
+        }
+
+        return id!!
+    }
+
+    fun updatePaymentAudit(id: Int, tookMs: Long, response: String) {
+        transaction(db) {
+            addLogger(StdOutSqlLogger)
+
+            PaymentAuditTable.update({PaymentAuditTable.id.eq(id)}) {
+                it[this.tookMs] = tookMs
+                it[this.response] = response
             }
         }
     }
